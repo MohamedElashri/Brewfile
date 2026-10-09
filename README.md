@@ -20,8 +20,16 @@ python3 scripts/sync.py --check                  # Check for changes without wri
 brew bundle install --file=Brewfile --no-upgrade # Restore on another Mac
 ```
 
-Sync classifies new packages by name and Homebrew description. If a package is unclear, an interactive terminal menu offers the appropriate formula or cask categories. Non-interactive runs put it in **New installs**. Sync also asks about removed packages in a terminal; non-interactive runs remove their entries from the Brewfile.
+Sync uses package names and Homebrew descriptions to classify new packages. If it cannot identify a package, an interactive run lets you choose a formula or cask category. Non-interactive runs add unclear packages to **New installs**.
 
-Use `--classify` to revisit **New installs**, `--keep-missing` to preserve packages absent from this Mac, or `--non-interactive` to use defaults. Run `python3 scripts/sync.py --help` for all options. Review the Brewfile before restoring it on a different Mac.
+Sync also checks for packages that were removed. In an interactive run, you can decide what to do with them. In a non-interactive run, Sync removes their entries from the Brewfile.
+
+Useful options:
+
+- `--classify` — classify packages in **New installs**.
+- `--keep-missing` — keep entries for packages missing from this Mac.
+- `--non-interactive` — use the non-interactive defaults.
+
+For all options, run `python3 scripts/sync.py --help`. Before restoring the Brewfile on another Mac, review its contents.
 
 Inspired by [Lissy93/Brewfile](https://github.com/Lissy93/Brewfile). Licensed under [MIT](LICENSE).
