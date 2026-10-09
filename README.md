@@ -1,48 +1,27 @@
-# My Mac, in a Brewfile
+# 🍺 Mac Brewfile
 
-This repository tracks the Homebrew packages installed on my Mac. It is not a complete inventory of all software, but it is a record of what I explicitly requested from Homebrew. The `Brewfile` is the install list; `dependencies.txt` is an inventory of other formulae that Homebrew installed to satisfy dependencies.
+**macOS · Homebrew · Python 3.12+**
 
+A compact record of my Mac's Homebrew setup, grouped by purpose with multiple versions of a tool kept together.
 
-## What is tracked
-
-| File | Purpose |
+| File | What it contains |
 | --- | --- |
-| [`Brewfile`](Brewfile) | The packages to restore: formulae explicitly requested from Homebrew, installed casks, and taps. Sections group related tools; `##` subheadings collect multiple versions of a package inside its section. |
-| [`dependencies.txt`](dependencies.txt) | Formulae installed locally that Homebrew does not mark as requested, with `##` headings for multiple versions. This is an inventory for review, not an install list. Homebrew resolves dependencies when you install the Brewfile. |
-| [`scripts/sync.py`](scripts/sync.py) | Reconcile the files with what is currently installed. Requires Python 3.9+ and Homebrew. |
+| [Brewfile](Brewfile) | Requested formulae, casks, and taps to install on another Mac. |
+| [dependencies.txt](dependencies.txt) | Formulae Homebrew installed as dependencies, kept for reference. |
+| [sync.py](scripts/sync.py) | Updates both lists from this Mac's installed packages. |
 
-The division uses Homebrew's `installed_on_request` receipt field. Older or unusual receipts can be ambiguous, so review the generated lists before relying on them as a record of intent. Versions such as `postgresql@15` and `postgresql@18` are separate formulae; a Brewfile records these formula names, not exact patch versions.
+## Quick start
 
-## Update after installing software
-
-```sh
-python3 scripts/sync.py
-```
-
-New installs are added automatically. Familiar packages enter their usual section; otherwise they appear under **New installs**. Move a line into the section you prefer. The sync command preserves that placement and any options on the line on later runs. When two or more names in a section share a base package and at least one has a numeric `@version` suffix, sync collects them under a `##` subheading (for example, `postgresql@15` and `postgresql@18` under Databases). It retains Brewfile entries for packages that are temporarily absent from this Mac, which is useful when keeping a desired setup for another Mac.
-
-To see whether the inventory needs updating without writing files:
+Install [Homebrew](https://brew.sh/), then use these commands from the repository root:
 
 ```sh
-python3 scripts/sync.py --check
+python3 scripts/sync.py                          # Update after installing or removing software
+python3 scripts/sync.py --check                  # Check for changes without writing files
+brew bundle install --file=Brewfile --no-upgrade # Restore on another Mac
 ```
 
-To remove entries that are no longer installed here:
+Sync classifies new packages by name and Homebrew description. If a package is unclear, an interactive terminal menu offers the appropriate formula or cask categories. Non-interactive runs put it in **New installs**. Sync also asks about removed packages in a terminal; non-interactive runs remove their entries from the Brewfile.
 
-```sh
-python3 scripts/sync.py --prune
-```
+Use `--classify` to revisit **New installs**, `--keep-missing` to preserve packages absent from this Mac, or `--non-interactive` to use defaults. Run `python3 scripts/sync.py --help` for all options. Review the Brewfile before restoring it on a different Mac.
 
-Review the diff before committing. `--prune` edits repository files only; it does not uninstall software.
-
-## Set up another Mac
-
-Install [Homebrew](https://brew.sh/), clone this repository, review the Brewfile for apps and versioned formulae you want there, then run:
-
-```sh
-brew bundle install --file=Brewfile --no-upgrade
-```
-
-Homebrew may prompt for third-party tap trust, cask permissions, or a password. `brew bundle check --file=Brewfile --no-upgrade` checks for missing items. Avoid `brew bundle cleanup` unless you specifically want to remove software absent from this list.
-
-Mac App Store apps and packages from other managers are outside this inventory. The `mas` formula itself is listed because it is installed through Homebrew.
+Inspired by [Lissy93/Brewfile](https://github.com/Lissy93/Brewfile). Licensed under [MIT](LICENSE).
