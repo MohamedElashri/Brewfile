@@ -1,44 +1,36 @@
-# Homebrew sync reference
+# My sync notes
 
-Each platform has its own inventory. Its `Brewfile` contains requested formulae, installed casks, and taps; `dependencies.txt` records formulae installed as dependencies for reference. Multiple versions of a tool are grouped together.
+I use `scripts/sync_homebrew.py` to keep my Homebrew records current after installing or removing packages. It requires Python 3.12+ and `brew` on my `PATH`.
 
-Keep `.sync-state.json` in version control. It binds the inventory to a machine, Homebrew prefix, and architecture and records generated installation settings. The machine identifier is hashed. The script requires Python 3.12+.
+Each platform has a `Brewfile` for requested formulae, casks, and taps, plus `dependencies.txt` for dependency formulae. I keep `.sync-state.json` in version control; it records generated settings and binds the inventory to my machine, Homebrew prefix, and architecture using a hashed machine identifier.
 
-## Quick start
+## Updating my inventories
 
-Install [Homebrew](https://brew.sh/), then use these commands from the repository root:
-
-```sh
-python3 scripts/sync_homebrew.py         # Update after installing or removing software
-python3 scripts/sync_homebrew.py --check # Check for changes without writing files
-```
-
-The script detects macOS or Linux and updates only `Mac/` or `Linux/`, respectively. It finds `brew` on your `PATH`. Follow Homebrew's setup instructions to add it to your shell, including on [Linux](https://docs.brew.sh/Homebrew-on-Linux). Homebrew must support `brew bundle dump --formula --cask --tap`; Linux casks require a Homebrew version that supports the selected casks.
-
-The existing Mac inventory needs to be bound on its first sync. On the Mac that owns that inventory, run:
+From the repository root:
 
 ```sh
-python3 scripts/sync_homebrew.py --adopt
+python3 scripts/sync_homebrew.py          # Update Mac/ or Linux/ automatically
+python3 scripts/sync_homebrew.py --check  # Check without writing
+python3 scripts/sync_homebrew.py --adopt  # Bind my existing Mac inventory once
 ```
 
-Sync refuses to overwrite an inventory bound to another machine or installation. To intentionally transfer ownership, use `--adopt`. Missing entries are kept by default, including during adoption; use `--prune` explicitly to remove them.
+I also use `--adopt` when intentionally moving an inventory to another machine or installation. Otherwise, a source mismatch blocks the sync.
 
-Restore the matching inventory on another machine:
+Missing packages stay by default. These are the options I use to manage the lists:
 
-```sh
-brew bundle install --file=Mac/Brewfile --no-upgrade   # On macOS
-brew bundle install --file=Linux/Brewfile --no-upgrade # On Linux
-```
+| Option | Purpose |
+| --- | --- |
+| `--prune` | Remove missing packages and taps |
+| `--keep-missing` | Keep missing packages without prompting |
+| `--classify` | Revisit packages under **New installs** |
+| `--reclassify` | Apply category rules to existing entries |
+| `--non-interactive` | Skip menus and keep missing packages |
 
-The script can run from any working directory; the restore commands above assume the repository root. Review the selected Brewfile before restoring it.
+Unknown packages get a category menu in an interactive run or go under **New installs** otherwise. Formulae kept in the Brewfile are excluded from the dependency list. All options are listed by `--help`.
 
-Sync uses package names and Homebrew descriptions to classify new packages. If it cannot identify a package, an interactive run lets you choose a formula or cask category. Non-interactive runs add unclear packages to **New installs**.
+## Separate setups
 
-Sync also checks for packages that were removed or are no longer marked as requested. Interactive runs let you choose whether to keep them, with **keep** as the default. Non-interactive runs keep them unless `--prune` is supplied. Retained formulae are excluded from the dependency reference list.
-
-## Additional machines and installations
-
-Use a named profile to keep another machine, an Intel/Apple Silicon installation, or a separate Homebrew prefix independent:
+I use profiles for another machine, architecture, or Homebrew installation:
 
 ```sh
 python3 scripts/sync_homebrew.py --profile server
@@ -46,13 +38,13 @@ python3 scripts/sync_homebrew.py --profile server --check
 brew bundle install --file=Linux/profiles/server/Brewfile --no-upgrade
 ```
 
-Profiles live in `Mac/profiles/NAME/` or `Linux/profiles/NAME/` and have the same source guard as the default inventories. A new profile binds automatically on its first successful sync. Restoring an inventory on another machine does not change its sync ownership.
+Profiles live under `Mac/profiles/NAME/` or `Linux/profiles/NAME/` and bind on their first successful sync. Restoring a Brewfile elsewhere leaves its sync ownership unchanged. My default restore commands are in the [README](../README.md).
 
-## Installation settings and custom content
+## Settings and manual entries
 
-Sync uses Homebrew's own dump output to capture custom tap URLs, existing tap/package trust, build arguments, HEAD installs, linking choices, and started services. It only requests formulae, casks, and taps from Homebrew; it does not discover other package types. Captured settings refresh on subsequent syncs. Manually edited options take precedence, and custom categories and comments are preserved. This follows [Homebrew's Brewfile support](https://docs.brew.sh/Brew-Bundle-and-Brewfile).
+Sync captures tap URLs, existing trust, build arguments, HEAD installs, linking choices, and started services through [Homebrew's dump output](https://docs.brew.sh/Brew-Bundle-and-Brewfile). My edited options take precedence; categories and comments are preserved.
 
-The generated portion accepts simple, single-line `tap`, `brew`, and `cask` entries with literal arguments. Duplicate entries, conditional Ruby, multiline entries, and other package types cause sync to stop before overwriting any inventory files. Put arbitrary Ruby or manually managed package types at the end of the Brewfile after this marker:
+The managed portion accepts single-line `tap`, `brew`, and `cask` entries with literal arguments. Unsupported syntax or duplicate entries stops the sync before overwriting files. I put custom Ruby and other package types at the end:
 
 ```ruby
 # -- Custom content --
@@ -61,29 +53,17 @@ if OS.linux?
 end
 ```
 
-Everything from the marker onward is preserved verbatim and is not classified, pruned, or synced. Keep packages in that block distinct from those managed above it to avoid duplicate declarations. They still participate when Homebrew evaluates the Brewfile during restore.
+That block is preserved verbatim and evaluated during restore. I keep its packages separate from the generated entries.
 
-Sync omits a redundant CLI cask when a requested formula with the same name supplies all of its binaries and the cask has no additional application artifacts. This resolves the GoReleaser overlap in the Linux inventory. It does not uninstall anything. Use `--no-deduplicate-casks` to track both; that preference is saved per inventory. Use `--deduplicate-casks` to enable the policy again.
+The Linux inventory keeps GoReleaser as a formula. Sync omits a matching CLI cask only when the requested formula supplies all its binaries and there are no additional application artifacts. The packages stay installed. `--no-deduplicate-casks` records both; `--deduplicate-casks` enables omission again. The preference is saved per inventory.
 
-A Brewfile records installation choices, not exact versions or application data. Homebrew has no Brewfile lockfile; `--no-upgrade` skips upgrading existing packages but does not pin versions on a fresh installation. Pin state is not captured. Sync's `--check` checks inventory drift, not whether every package can be installed on another architecture or OS release. Use `brew bundle check --file=Linux/Brewfile --verbose` to check the selected inventory's dependencies on the current machine.
+## Recovery and checks
 
-## Safe updates
-
-Sync locks each inventory, stages all three files, and replaces each file atomically. A write error triggers rollback. A hard interruption leaves a durable, checksummed journal; the next normal sync recovers the complete file set before continuing. `--check` never writes or recovers files and reports when recovery is needed. Do not delete transaction files while recovery is pending. Readers outside this script do not take its lock, so run restore after sync finishes.
-
-Run the regression tests without Homebrew or additional Python dependencies:
+Writes use a lock, atomic file replacements, and a recovery journal. Write errors trigger rollback; an interrupted sync recovers on the next normal run. I leave transaction files intact and finish syncing before restoring. `--check` reports pending recovery without changing files.
 
 ```sh
+brew bundle check --file=Linux/Brewfile --verbose
 python3 -m unittest discover -s tests -v
 ```
 
-Useful options:
-
-- `--classify` — classify packages in **New installs**.
-- `--keep-missing` — keep entries for packages missing from this machine.
-- `--prune` — explicitly remove missing packages and taps.
-- `--non-interactive` — use the non-interactive defaults.
-
-For all options, run `python3 scripts/sync_homebrew.py --help`.
-
-Inspired by [Lissy93/Brewfile](https://github.com/Lissy93/Brewfile). Licensed under [MIT](../LICENSE).
+Sync's `--check` detects inventory changes; Homebrew's check verifies dependencies on the current machine. My Brewfiles record installation choices rather than exact versions or application data. Pin state is not captured, and `--no-upgrade` only skips upgrades to existing packages.
